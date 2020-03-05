@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Phonotactics challenge</title>
+	<style type="text/css">
+		* {
+			margin: 0;
+			padding: 0;
+			font-family: 'Segoe UI', sans-serif;
+			font-size: 16px;
+		}
+
+		#re {
+			font-family: 'Segoe UI', 'Arial', sans-serif;
+			font-size: 20px;
+			width: calc(100vw - 50px);
+		}
+
+		#f-score {
+			font-size: 50px;
+		}
+
+		section {
+			margin: 20px;
+		}
+
+		p {
+			margin-top: 20px;
+			margin-bottom: 20px;
+		}
+
+		ul {
+			margin-left: 30px;
+		}
+
+		button {
+			margin: 10px 0;
+			padding: 3px 6px;
+		}
+
+		.invalid {
+			background: lightpink;
+		}
+
+		#status.loading {
+			color: purple;
+		}
+
+		#status:not(.loading) {
+			color: teal;
+		}
+	</style>
+	<script src="windows-1257.js"></script>
+</head>
+<body>
+	<section id="status" class="loading">Loading dictionary...</section>
+	<section>
+		<p>
+			<input type="radio" name="style" value="algebraic"> Algebraic RE
+			<input type="radio" name="style" value="pcre" checked="checked" style="margin-left: 30px;"> PCRE/ECMA-RE
+		</p>
+		<input id="re">
+		<button>Grade</button>
+	</section>
+	<section id="grading">
+		<ul>
+			<li><span id="tp">?</span> true positives,</li>
+			<li><span id="tn">?</span> true negatives,</li>
+			<li><span id="fp">?</span> false positives,</li>
+			<li><span id="fn">?</span> false negatives.</li>
+		</ul>
+		<p>F-score:</p>
+		<p id="f-score"></p>
+	</section>
+	<script type="text/javascript">
+
+		let replacements = {
+			'.': '˙',
+			'1': '¹',
+			'2': '²',
+			'3': '³',
+			'4': '⁴',
+			'5': '⁵',
+			'6': '⁶',
+			'7': '⁷',
+			'8': '⁸',
+			'9': '⁹',
+			'0': '⁰'
+		};
+
+		let reverseReplacements = {
+			'¹': '1',
+			'²': '2',
+			'³': '3',
+			'⁴': '4',
+			'⁵': '5',
+			'⁶': '6',
+			'⁷': '7',
+			'⁸': '8',
+			'⁹': '9',
+			'⁰': '0',
+			'C': '(s|š|z|ž|t|d|k|g|p|b|c|č|f|h|w|x|q|l|m|n|r|v|j)',
+			'V': '(a|ą|e|ę|ė|i|į|y|o|u|ų|ū)'
+		};
+
+		let disallowed = /[^CV˙¹²³⁴⁵⁶⁷⁸⁹⁰aąbcčdeęėfghiįyjklmnopqrsštuųūvwxzž\+\(\)]/g;
+
+		let backup = '';
+
+		document.querySelector('#re').onkeyup = (event) => {
+			let algebraic = document.querySelector('[name=style]:checked').value === 'algebraic';
+			if (algebraic) {
+				let position = event.target.selectionStart;
+
+				for (let from of Object.keys(replacements)) {
+					let to = replacements[from];
+					event.target.value = event.target.value.split(from).join(to);
+				}
+				if (event.target.value.match(disallowed)) {
+					event.target.className = 'invalid';
+					document.querySelector('button').disabled = true;
+				} else {
+					event.target.className = '';
+					document.querySelector('button').disabled = false;
+				}
+				backup = event.target.value;
+				event.target.selectionEnd = position;
+			} else {
+				event.target.className = '';
+				document.querySelector('button').disabled = false;
+			}
+
+			if (event.keyCode === 13 && (!disallowed.test(event.target.value) || !algebraic)) {
+				document.querySelector('button').onclick({target: document.querySelector('button')});
+			}
+		};
+
+		document.querySelector('button').onclick = (event) => {
+			// let input = document.querySelector('input');
+			// input.value = input.value.replace(/˙+/g, '˙˙˙').replace(/˙˙˙([^\d])/g, '$1');
+			let re;
+			if (document.querySelector('[name=style]:checked').value === 'algebraic') {
+				let pattern = document.querySelector('#re').value.replace(/˙+/g, ',').replace(/\+/g, '|');
+				for (let from of Object.keys(reverseReplacements)) {
+					let to = reverseReplacements[from];
+					pattern = pattern.split(from).join(to);
+				}
+				re = new RegExp('^(' + pattern.replace(/([\d,]+)/g, '{$1}') + ')$');
+			} else {
+				try {
+					re = new RegExp('^(' + document.querySelector('#re').value.replace(/^\/+|\/+$/g, '') + ')$');
+				} catch (e) {
+					window.alert(e);
+				}
+			}
+			
+			console.log(re);
+			let tp = 0, fp = 0, tn = 0, fn = 0;
+			for (let word of expansion) {
+				if (Math.random() > 0.1) {
+					continue;
+				}
+				if (re.test(word)) {
+					tp++;
+				} else {
+					fn++;
+				}
+			}
+			for (let word of counterExamples) {
+				if (re.test(word)) {
+					fp++;
+				} else {
+					tn++;
+				}
+			}
+			document.querySelector('#tp').innerHTML = tp;
+			document.querySelector('#fp').innerHTML = fp;
+			document.querySelector('#tn').innerHTML = tn;
+			document.querySelector('#fn').innerHTML = fn;
+			let precision = tp / (tp + fp);
+			let recall = tp / (tp + fn);
+			console.log('prec', precision, 'rec', recall)
+			document.querySelector('#f-score').innerHTML = ((precision + recall) ? (parseInt((2 * (precision * recall) / (precision + recall)) * 100)) : 0) + '%';
+		};
+
+		let dictionary, affixes;
+
+		fetch('https://raw.githubusercontent.com/elastic/hunspell/master/dicts/lt/lt.dic')
+		.then(response => response.arrayBuffer())
+		.then(buf => { dictionary = new TextDecoder('cp1257').decode(buf); })
+		.then(() => fetch('https://raw.githubusercontent.com/elastic/hunspell/master/dicts/lt/lt.aff'))
+		.then(response => response.arrayBuffer())
+		.then(buf => { affixes = new TextDecoder('cp1257').decode(buf); })
+		.then(processDictionary)
+		.then(expand)
+		.then(createCounterExamples)
+		.then(() => { let s = document.querySelector('#status'); s.innerHTML = 'Dictionary loaded.'; s.className = ''; });
+
+		let lemmata = {};
+		let rules = {};
+
+		let expansion = new Set;
+		let counterExamples = new Set;
+
+		function processDictionary()
+		{
+			let section = document.querySelector('section');
+			let first = true;
+			for (let line of dictionary.split('\n')) {
+				let features = '', word = line;
+				if (!first) {
+					if (line.includes('/')) {
+						[word, features] = line.split('/');
+					}
+					lemmata[word] = Array.from(features);
+				}
+				first = false;
+			}
+			delete dictionary;
+			let crossProduct = false;
+			for (let line of affixes.split('\n')) {
+				let items = line.split(/\s+/);
+				if (items.length > 0) {
+					let keyword = items[0];
+					if (keyword === '' || keyword === 'SET' || keyword === 'TRY') {
+						continue;
+					}
+					if (keyword === 'PFX' || keyword === 'SFX') {
+						if (items.length === 5) {
+							// Affix entry
+							let [source, truncate, affix, pattern] = items.slice(1);
+							if (!rules.hasOwnProperty(source)) {
+								rules[source] = {};
+							}
+							if (!rules[source].hasOwnProperty(pattern)) {
+								rules[source][pattern] = [];
+							}
+							rules[source][pattern].push([keyword, truncate, affix, crossProduct]);
+						} else if (items.length === 4) {
+							// Affix header
+							let [source, cross, count] = items.slice(1);
+							crossProduct = cross;
+						} else {
+							// Something else
+							console.log(items);
+						}
+					}
+				}
+			}
+			delete affixes;
+		}
+
+		function expand()
+		{
+			let patterns = {};
+			let unexpanded = new Set(Object.keys(lemmata));
+			expansion = new Set(Array.from(unexpanded).map(u => u.toLowerCase()));
+			while (unexpanded.size > 0) {
+				for (let lemma of Array.from(unexpanded)) {
+					let features = lemmata[lemma];
+					for (let feature of features) {
+						for (let pattern of Object.keys(rules[feature])) {
+							if (!patterns.hasOwnProperty(pattern)) {
+								patterns[pattern] = [new RegExp('^' + pattern), new RegExp(pattern + '$')];
+							}
+							let [initial, final] = patterns[pattern];
+							if (!initial.test(lemma) && !final.test(lemma)) {
+								continue;
+							}
+							for (let [keyword, truncate, affix, crossProduct] of rules[feature][pattern]) {
+								let production;
+								if (keyword === 'PFX' && initial.test(lemma)) {
+									production = affix + lemma.substr(truncate);
+								} else if (keyword === 'SFX' && final.test(lemma)) {
+									production = lemma.substr(0, lemma.length - truncate) + affix;
+								}
+								if (production) {
+									expansion.add(production.toLowerCase());
+									if (crossProduct) {
+										//unexpanded.add(production);
+										//lemmata[production] = features;
+									}
+								}
+							} 
+ 						}
+					}
+					unexpanded.delete(lemma);
+				}
+			}
+			// console.log(expansion.size);
+			delete lemmata;
+			delete rules;
+		}
+
+		function createCounterExamples()
+		{
+			let alpha = 'aąbcčdeęėfghiįyjklmnopqrsštuųūvxzž';
+			let pattern = new RegExp('[' + alpha + ']');
+			let n = parseInt(alpha.length / 2);
+			let rotations = {};
+			for (let k = 0; k < alpha.length; k++) {
+				rotations[alpha[k]] = alpha[(k + n) % alpha.length];
+			}
+			for (let word of expansion) {
+				let pseudo = '';
+				for (let letter of word) {
+					if (pattern.test(letter)) {
+						pseudo += rotations[letter];
+					} else {
+						pseudo += letter;
+					}
+				}
+				counterExamples.add(pseudo);
+			}
+		}
+	</script>
+</body>
+</html>
