@@ -50,6 +50,10 @@
 		#status:not(.loading) {
 			color: teal;
 		}
+
+		.list {
+			display: none;
+		}
 	</style>
 	<script src="windows-1257.js"></script>
 </head>
@@ -57,18 +61,18 @@
 	<section id="status" class="loading">Loading dictionary...</section>
 	<section>
 		<p>
-			<input type="radio" name="style" value="algebraic"> Algebraic RE
-			<input type="radio" name="style" value="pcre" checked="checked" style="margin-left: 30px;"> PCRE/ECMA-RE
+			<input type="radio" name="style" value="algebraic" checked="checked"> Algebraic RE
+			<input type="radio" name="style" value="pcre" style="margin-left: 30px;"> PCRE/ECMA-RE
 		</p>
 		<input id="re">
 		<button>Grade</button>
 	</section>
 	<section id="grading">
 		<ul>
-			<li><span id="tp">?</span> true positives,</li>
-			<li><span id="tn">?</span> true negatives,</li>
-			<li><span id="fp">?</span> false positives,</li>
-			<li><span id="fn">?</span> false negatives.</li>
+			<li><span id="tp">?</span> true positives<span class="list"> (e.g. <span>?</span>)</span>,</li>
+			<li><span id="tn">?</span> true negatives<span class="list"> (e.g. <span>?</span>)</span>,</li>
+			<li><span id="fp">?</span> false positives<span class="list"> (e.g. <span>?</span>)</span>,</li>
+			<li><span id="fn">?</span> false negatives<span class="list"> (e.g. <span>?</span>)</span>.</li>
 		</ul>
 		<p>F-score:</p>
 		<p id="f-score"></p>
@@ -156,30 +160,35 @@
 			}
 			
 			console.log(re);
-			let tp = 0, fp = 0, tn = 0, fn = 0;
+			let tp = [], fp = [], tn = [], fn = [];
 			for (let word of expansion) {
-				if (Math.random() > 0.1) {
-					continue;
-				}
 				if (re.test(word)) {
-					tp++;
+					tp.push(word);
 				} else {
-					fn++;
+					fn.push(word);
 				}
 			}
 			for (let word of counterExamples) {
 				if (re.test(word)) {
-					fp++;
+					fp.push(word);
 				} else {
-					tn++;
+					tn.push(word);
 				}
 			}
-			document.querySelector('#tp').innerHTML = tp;
-			document.querySelector('#fp').innerHTML = fp;
-			document.querySelector('#tn').innerHTML = tn;
-			document.querySelector('#fn').innerHTML = fn;
-			let precision = tp / (tp + fp);
-			let recall = tp / (tp + fn);
+			let stats = {tp: tp, fp: fp, tn: tn, fn: fn};
+			for (let s of Object.keys(stats)) {
+				let node = document.querySelector('#' + s);
+				node.innerHTML = stats[s].length;
+				let container = node.parentElement;
+				if (stats[s].length > 0) {
+					container.querySelector('.list').style.display = 'inline';
+					container.querySelector('.list span').innerHTML = stats[s].slice(0, 10).map(x => ['fp', 'tn'].includes(s) ? '*' + x : x).join(', ');
+				} else {
+					container.querySelector('.list').style.display = 'none';
+				}
+			}
+			let precision = tp.length / (tp.length + fp.length);
+			let recall = tp.length / (tp.length + fn.length);
 			console.log('prec', precision, 'rec', recall)
 			document.querySelector('#f-score').innerHTML = ((precision + recall) ? (parseInt((2 * (precision * recall) / (precision + recall)) * 100)) : 0) + '%';
 		};
